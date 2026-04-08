@@ -68,7 +68,7 @@
 <!-- TELA DE LOGIN -->
 <div id="login-screen">
     <div class="login-box">
-        <h2 style="color: var(--dark)">🍔 Lanchonete Pinheiros</h2>
+        <h2 style="color: var(--dark)">🍔 Lanchonete Cloud</h2>
         <p>Faça login para continuar</p>
         <input type="email" id="login-email" placeholder="E-mail">
         <input type="password" id="login-password" placeholder="Senha">
@@ -79,7 +79,7 @@
 </div>
 
 <!-- LOADING -->
-<div id="loading">⌛ Carregando dados...</div>
+<div id="loading">⌛ Processando...</div>
 
 <!-- APP CONTENT -->
 <div id="app-container" style="display: none; flex-direction: column; height: 100vh;">
@@ -105,6 +105,11 @@
     </main>
 
     <main id="view-produtos">
+        <div style="margin-top: 10px; display: flex; gap: 10px;">
+                <button class="btn" style="width: auto; background: #555; color: white;" onclick="exportProductsJSON()">📥 Exportar Produtos (JSON)</button>
+                <button class="btn" style="width: auto; background: #555; color: white;" onclick="document.getElementById('importProdFile').click()">📤 Importar Produtos (JSON)</button>
+                <input type="file" id="importProdFile" style="display:none" accept=".json" onchange="importProductsJSON(event)">
+            </div>
         <div style="display: flex; gap: 20px;">
             <div style="flex: 1;">
                 <h3>Categorias <button onclick="openCategoryModal()" class="btn btn-success" style="width:auto; padding:5px">+</button></h3>
@@ -117,6 +122,7 @@
                     <tbody id="table-products"></tbody>
                 </table>
             </div>
+            
         </div>
     </main>
 
@@ -147,10 +153,12 @@
 
     <main id="view-relatorios">
         <h2>Financeiro</h2>
+        
         <div style="background: white; padding: 15px; border-radius: 10px; display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
             <div>Início: <input type="date" id="date-start"></div>
             <div>Fim: <input type="date" id="date-end"></div>
             <button class="btn btn-primary" style="width: auto;" onclick="renderReports()">Filtrar</button>
+            <button class="btn btn-excel" style="width: auto; background: #1d6f42; color: white;" onclick="exportSalesCSV()">📊 Excel (CSV)</button>
         </div>
         <div style="background: white; padding: 20px; border-radius: 10px; margin-top: 20px; text-align: center; border-bottom: 5px solid var(--primary);">
             <h3>Faturamento no Período</h3>
@@ -162,10 +170,26 @@
 </div>
 
 <!-- MODAIS -->
+<div id="modal-new-comanda" class="modal">
+    <div class="modal-content">
+        <h3>Abrir Comanda</h3>
+        <input type="text" id="new-c-name" placeholder="Mesa ou Nome">
+        <label>Empresa:</label>
+        <select id="new-c-company">
+            <option value="Nenhuma">Sem Empresa</option>
+            <option value="Azul">Azul</option>
+            <option value="Casinhas">Casinhas</option>
+            <option value="Pedreiros">Pedreiros</option>
+        </select>
+        <button class="btn btn-success" onclick="createComanda()">Abrir Agora</button>
+        <button class="btn" onclick="closeModal('modal-new-comanda')">Cancelar</button>
+    </div>
+</div>
+
 <div id="modal-category" class="modal"><div class="modal-content"><h3>Nova Categoria</h3><input type="text" id="cat-name"><button class="btn btn-success" onclick="saveCategory()">Salvar</button><button class="btn" onclick="closeModal('modal-category')">Sair</button></div></div>
 <div id="modal-product" class="modal"><div class="modal-content"><h3>Produto</h3><input type="hidden" id="p-id"><label>Categoria</label><select id="p-category-select"></select><input type="text" id="p-name" placeholder="Nome"><input type="number" id="p-price" placeholder="Preço"><textarea id="p-addons" placeholder="Opcionais (Bacon:2.00, Ovo:1.50)"></textarea><button class="btn btn-success" onclick="saveProduct()">Salvar</button><button class="btn" onclick="closeModal('modal-product')">Sair</button></div></div>
 <div id="modal-edit-name" class="modal"><div class="modal-content"><h3>Mudar Nome</h3><input type="text" id="edit-c-name"><button class="btn btn-success" onclick="saveNewName()">OK</button></div></div>
-<div id="modal-checkout" class="modal"><div class="modal-content"><h3>Pagar</h3><p>Total: <b id="pay-total"></b></p><select id="pay-method"><option>Dinheiro</option><option>PIX</option><option>Cartão</option></select><button class="btn btn-success" onclick="finalizeSale(true)">Pagar e Imprimir</button><button class="btn btn-primary" onclick="finalizeSale(false)">Apenas Pagar</button><button class="btn" onclick="closeModal('modal-checkout')">Voltar</button></div></div>
+<div id="modal-checkout" class="modal"><div class="modal-content"><h3>Pagar</h3><p id="pay-total-txt"></p><select id="pay-method"><option>Dinheiro</option><option>PIX</option><option>Cartão</option></select><button class="btn btn-success" onclick="finalizeSale(true)">Pagar e Imprimir</button><button class="btn btn-primary" onclick="finalizeSale(false)">Apenas Pagar</button><button class="btn" onclick="closeModal('modal-checkout')">Voltar</button></div></div>
 <div id="modal-item" class="modal"><div class="modal-content"><h3>Opcionais</h3><div id="item-addons-list"></div><input type="text" id="item-obs" placeholder="Observação"><button class="btn btn-success" onclick="confirmItemOptions()">Salvar</button></div></div>
 
 <div id="printArea"></div>
@@ -187,13 +211,19 @@
     const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     const showLoading = (show) => document.getElementById('loading').style.display = show ? 'flex' : 'none';
 
-    // AUTH
+    // --- SISTEMA DE AUTENTICAÇÃO ---
+
     async function checkAuth() {
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (user) {
             currentUser = user;
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
+            
+            showLoading(true);
+            await Promise.all([fetchCategories(), fetchProducts(), fetchOpenOrders()]);
+            showLoading(false);
+            
             router('painel');
         } else {
             document.getElementById('login-screen').style.display = 'flex';
@@ -206,8 +236,11 @@
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
         const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) document.getElementById('login-error').innerText = "Erro: " + error.message;
-        else checkAuth();
+        if (error) {
+            document.getElementById('login-error').innerText = "Erro: " + error.message;
+        } else {
+            await checkAuth();
+        }
         showLoading(false);
     }
 
@@ -226,22 +259,19 @@
         location.reload();
     }
 
-    // NAVEGAÇÃO
+    // --- NAVEGAÇÃO E BUSCA DE DADOS ---
+
     async function router(view) {
         document.querySelectorAll('main').forEach(m => m.classList.remove('active-view'));
-        document.getElementById('view-' + view).classList.add('active-view');
+        const target = document.getElementById('view-' + view);
+        if (target) target.classList.add('active-view');
         
-        showLoading(true);
-        try {
-            if (view === 'painel') await fetchOpenOrders();
-            if (view === 'produtos') { await fetchCategories(); await fetchProducts(); }
-            if (view === 'historico') await fetchHistory();
-            if (view === 'relatorios') await fetchReports();
-        } catch (e) { console.error(e); }
-        showLoading(false);
+        if (view === 'painel') await fetchOpenOrders();
+        if (view === 'produtos') { await fetchCategories(); await fetchProducts(); }
+        if (view === 'historico') await fetchHistory();
+        if (view === 'relatorios') await fetchReports();
     }
 
-    // DATA FETCHING (Multi-tenant)
     async function fetchCategories() {
         const { data } = await supabaseClient.from('categories').select('*').eq('user_id', currentUser.id);
         categories = data || [];
@@ -260,13 +290,15 @@
         renderPainel();
     }
 
-    // OPERAÇÕES
+    // --- OPERAÇÕES ---
+
     async function saveCategory() {
         const name = document.getElementById('cat-name').value;
+        if (!name) return;
         await supabaseClient.from('categories').insert([{ name, user_id: currentUser.id }]);
         document.getElementById('cat-name').value = '';
         closeModal('modal-category');
-        fetchCategories();
+        await fetchCategories();
     }
 
     async function saveProduct() {
@@ -275,40 +307,176 @@
         const price = parseFloat(document.getElementById('p-price').value);
         const category = document.getElementById('p-category-select').value;
         const addonsStr = document.getElementById('p-addons').value;
+        
         const addons = addonsStr.split(',').filter(s => s.includes(':')).map(s => {
-            const p = s.split(':'); return { name: p[0].trim(), price: parseFloat(p[1]) || 0 };
+            const parts = s.split(':'); 
+            return { name: parts[0].trim(), price: parseFloat(parts[1]) || 0 };
         });
 
         const pData = { name, price, category, addons, user_id: currentUser.id };
         
-        if (id) await supabaseClient.from('products').update(pData).eq('id', id);
+        showLoading(true);
+        if (id) await supabaseClient.from('products').update(pData).eq('id', id).eq('user_id', currentUser.id);
         else await supabaseClient.from('products').insert([pData]);
 
         closeModal('modal-product');
-        fetchProducts();
+        await fetchProducts();
+        showLoading(false);
+    }
+
+    async function deleteProduct(id) {
+        if (confirm("Excluir produto?")) {
+            showLoading(true);
+            await supabaseClient.from('products').delete().eq('id', id).eq('user_id', currentUser.id);
+            await fetchProducts();
+            showLoading(false);
+        }
+    }
+
+    // --- CORREÇÃO: LÓGICA DE ABERTURA E CRIAÇÃO DE COMANDAS ---
+
+    function openNewComandaModal() {
+        document.getElementById('modal-new-comanda').style.display = 'flex';
     }
 
     async function createComanda() {
-        const name = document.getElementById('new-c-name').value || "Mesa";
-        const company = document.getElementById('new-c-company').value;
-        const { data } = await supabaseClient.from('open_orders').insert([{ 
-            name, 
-            company, 
-            user_id: currentUser.id, 
-            items: [] 
-        }]).select();
-        
-        closeModal('modal-new-comanda');
-        if (data) openOrder(data[0].id);
+        const nameInput = document.getElementById('new-c-name');
+        const companyInput = document.getElementById('new-c-company');
+        const name = nameInput.value || "Mesa";
+        const company = companyInput.value;
+
+        showLoading(true);
+        try {
+            const { data, error } = await supabaseClient.from('open_orders').insert([{ 
+                name, 
+                company, 
+                user_id: currentUser.id, 
+                items: [] 
+            }]).select();
+            
+            if (error) throw error;
+
+            nameInput.value = ''; // Limpa o campo
+            closeModal('modal-new-comanda');
+            
+            await fetchOpenOrders(); // Recarrega a lista do banco
+            
+            if (data && data[0]) {
+                openOrder(data[0].id); // Abre a tela de pedidos para essa comanda
+            }
+        } catch (e) {
+            alert("Erro ao abrir comanda: " + e.message);
+        } finally {
+            showLoading(false);
+        }
     }
 
+    async function openOrder(id) {
+        showLoading(true);
+        currentOrderId = id;
+        
+        // Tenta achar na lista local, se não achar, busca no banco
+        let ord = openOrders.find(o => String(o.id) === String(id));
+        
+        if (!ord) {
+            const { data } = await supabaseClient.from('open_orders').select('*').eq('id', id).single();
+            ord = data;
+        }
+
+        if (!ord) {
+            alert("Comanda não encontrada.");
+            showLoading(false);
+            return router('painel');
+        }
+
+        document.getElementById('title-comanda').innerText = ord.name;
+        document.getElementById('label-empresa-pedido').innerText = ord.company !== 'Nenhuma' ? ord.company : '';
+        
+        renderCatalog();
+        renderOrderItemsFromObj(ord);
+        
+        router('pedido');
+        showLoading(false);
+    }
+
+    async function addItem(pId) {
+        const p = products.find(x => String(x.id) === String(pId));
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        if (!ord || !p) return;
+
+        const newItem = { id: p.id, name: p.name, price: p.price, qty: 1, obs: '', selectedAddons: [] };
+        ord.items.push(newItem);
+
+        await saveAndRefreshOrder();
+    }
+
+    async function changeQty(idx, delta) {
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        if (!ord) return;
+
+        ord.items[idx].qty += delta;
+        if (ord.items[idx].qty <= 0) {
+            if (confirm("Remover item?")) ord.items.splice(idx, 1);
+            else ord.items[idx].qty = 1;
+        }
+        await saveAndRefreshOrder();
+    }
+
+    async function saveAndRefreshOrder() {
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        showLoading(true);
+        const { error } = await supabaseClient
+            .from('open_orders')
+            .update({ items: ord.items })
+            .eq('id', currentOrderId)
+            .eq('user_id', currentUser.id);
+        
+        if (error) alert("Erro ao salvar: " + error.message);
+        renderOrderItemsFromObj(ord);
+        showLoading(false);
+    }
+
+    async function saveNewName() {
+        const newName = document.getElementById('edit-c-name').value;
+        showLoading(true);
+        await supabaseClient.from('open_orders')
+            .update({ name: newName })
+            .eq('id', currentOrderId)
+            .eq('user_id', currentUser.id);
+        
+        closeModal('modal-edit-name');
+        await fetchOpenOrders();
+        openOrder(currentOrderId);
+        showLoading(false);
+    }
+
+    async function handleDeleteOrder() {
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        if (confirm("Deseja EXCLUIR esta comanda?")) {
+            showLoading(true);
+            const total = calculateTotal(ord);
+            await supabaseClient.from('deleted_log').insert([{
+                order_name: ord.name,
+                total: total,
+                content: ord.items.map(i => `${i.qty}x ${i.name}`).join(', '),
+                user_id: currentUser.id
+            }]);
+            await supabaseClient.from('open_orders').delete().eq('id', ord.id).eq('user_id', currentUser.id);
+            await fetchOpenOrders();
+            router('painel');
+            showLoading(false);
+        }
+    }
+
+    // --- FINALIZAÇÃO E RELATÓRIOS ---
+
     async function finalizeSale(print) {
-        const ord = openOrders.find(o => o.id === currentOrderId);
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
         const total = calculateTotal(ord);
         const method = document.getElementById('pay-method').value;
 
-        // 1. Salvar na tabela de vendas
-        await supabaseClient.from('sales').insert([{
+        showLoading(true);
+        const { error: saleError } = await supabaseClient.from('sales').insert([{
             name: ord.name,
             company: ord.company,
             total: total,
@@ -317,33 +485,56 @@
             user_id: currentUser.id
         }]);
 
-        // 2. Deletar da comanda aberta
-        await supabaseClient.from('open_orders').delete().eq('id', ord.id);
-
-        if (print) {
-            ord.total = total; ord.method = method;
-            printOrder('receipt', ord);
-        }
-        closeModal('modal-checkout');
-        router('painel');
-    }
-
-    async function handleDeleteOrder() {
-        const ord = openOrders.find(o => o.id === currentOrderId);
-        if (confirm("Deseja EXCLUIR esta comanda?")) {
-            const total = calculateTotal(ord);
-            await supabaseClient.from('deleted_log').insert([{
-                order_name: ord.name,
-                total: total,
-                content: ord.items.map(i => `${i.qty}x ${i.name}`).join(', '),
-                user_id: currentUser.id
-            }]);
-            await supabaseClient.from('open_orders').delete().eq('id', ord.id);
+        if (saleError) {
+            alert("Erro ao salvar venda: " + saleError.message);
+        } else {
+            await supabaseClient.from('open_orders').delete().eq('id', ord.id).eq('user_id', currentUser.id);
+            
+            if (print) {
+                ord.total = total; 
+                ord.method = method;
+                printOrder('receipt', ord);
+            }
+            closeModal('modal-checkout');
+            await fetchOpenOrders();
             router('painel');
         }
+        showLoading(false);
     }
 
-    // --- RENDERS (Lógica UI adaptada) ---
+    async function fetchHistory() {
+        const { data } = await supabaseClient.from('sales').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+        document.getElementById('table-history').innerHTML = (data || []).map(s => `
+            <tr><td>${new Date(s.created_at).toLocaleString()}</td><td>${s.name}</td><td>${s.company}</td><td>${fmt(s.total)}</td><td>${s.method}</td></tr>
+        `).join('');
+    }
+
+    async function fetchReports() {
+        const { data } = await supabaseClient.from('deleted_log').select('*').eq('user_id', currentUser.id).order('deleted_at', { ascending: false });
+        document.getElementById('table-deleted-log').innerHTML = (data || []).map(l => `
+            <tr><td>${new Date(l.deleted_at).toLocaleString()}</td><td>${l.order_name}</td><td>${l.content}</td><td>${fmt(l.total)}</td></tr>
+        `).join('');
+    }
+
+    async function renderReports() {
+        const start = document.getElementById('date-start').value;
+        const end = document.getElementById('date-end').value;
+        if(!start || !end) return alert("Selecione as datas");
+
+        showLoading(true);
+        const { data } = await supabaseClient.from('sales')
+            .select('total')
+            .eq('user_id', currentUser.id)
+            .gte('created_at', start)
+            .lte('created_at', end + 'T23:59:59');
+
+        const total = (data || []).reduce((acc, curr) => acc + parseFloat(curr.total), 0);
+        document.getElementById('rep-total').innerText = fmt(total);
+        showLoading(false);
+    }
+
+    // --- AUXILIARES ---
+
     function renderPainel() {
         const grid = document.getElementById('grid-comandas');
         grid.innerHTML = `<div class="btn-add-comanda" onclick="openNewComandaModal()">+ NOVA COMANDA</div>`;
@@ -358,14 +549,13 @@
         });
     }
 
-    function renderOrderItems() {
-        const ord = openOrders.find(o => o.id === currentOrderId);
+    function renderOrderItemsFromObj(ord) {
         const list = document.getElementById('order-items');
         list.innerHTML = '';
-        if (!ord) return;
+        if (!ord || !ord.items) return;
 
         ord.items.forEach((item, idx) => {
-            const sub = (item.price + item.selectedAddons.reduce((a,b)=>a+b.price,0)) * item.qty;
+            const sub = (item.price + (item.selectedAddons ? item.selectedAddons.reduce((a,b)=>a+b.price,0) : 0)) * item.qty;
             list.innerHTML += `<div class="order-item">
                 <div style="display:flex; justify-content:space-between">
                     <div><button onclick="changeQty(${idx},-1)">-</button> ${item.qty} <button onclick="changeQty(${idx},1)">+</button> ${item.name}</div>
@@ -377,23 +567,6 @@
         document.getElementById('total-comanda').innerText = fmt(calculateTotal(ord));
     }
 
-    async function saveAndRefreshOrder() {
-        const ord = openOrders.find(o => o.id === currentOrderId);
-        await supabaseClient.from('open_orders').update({ items: ord.items }).eq('id', currentOrderId);
-        renderOrderItems();
-    }
-
-    // Funções de apoio
-    function openOrder(id) {
-        currentOrderId = id;
-        const ord = openOrders.find(o => o.id === id);
-        document.getElementById('title-comanda').innerText = ord.name;
-        document.getElementById('label-empresa-pedido').innerText = ord.company !== 'Nenhuma' ? ord.company : '';
-        router('pedido');
-        renderCatalog();
-        renderOrderItems();
-    }
-
     function renderCatalog(filter = '') {
         const cat = document.getElementById('catalog'); cat.innerHTML = '';
         products.filter(p => p.name.toLowerCase().includes(filter.toLowerCase())).forEach(p => {
@@ -401,83 +574,23 @@
         });
     }
 
-    function addItem(pId) {
-        const p = products.find(x => x.id === pId);
-        const ord = openOrders.find(o => o.id === currentOrderId);
-        ord.items.push({ id: p.id, name: p.name, price: p.price, qty: 1, obs: '', selectedAddons: [] });
-        saveAndRefreshOrder();
-    }
-
-    function changeQty(idx, delta) {
-        const ord = openOrders.find(o => o.id === currentOrderId);
-        ord.items[idx].qty += delta;
-        if (ord.items[idx].qty <= 0) ord.items.splice(idx, 1);
-        saveAndRefreshOrder();
-    }
-
-    async function saveNewName() {
-        const newName = document.getElementById('edit-c-name').value;
-        await supabaseClient.from('open_orders').update({ name: newName }).eq('id', currentOrderId);
-        closeModal('modal-edit-name');
-        router('painel');
-    }
-
-    // MODAIS E AUXILIARES
-    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    function openNewComandaModal() { document.getElementById('modal-new-comanda').style.display='flex'; }
-    function openProductModal() { document.getElementById('modal-product').style.display='flex'; }
-    function openCategoryModal() { document.getElementById('modal-category').style.display='flex'; }
-    function openCheckout() { 
-        const ord = openOrders.find(o => o.id === currentOrderId);
-        document.getElementById('pay-total').innerText = fmt(calculateTotal(ord));
-        document.getElementById('modal-checkout').style.display = 'flex'; 
-    }
-    function openEditNameModal() { document.getElementById('modal-edit-name').style.display = 'flex'; }
-
     function renderAdminCategories() {
         document.getElementById('table-categories').innerHTML = categories.map(c => `<tr><td>${c.name}</td></tr>`).join('');
         document.getElementById('p-category-select').innerHTML = categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
     }
 
     function renderAdminProducts() {
-        document.getElementById('table-products').innerHTML = products.map(p => `<tr><td>${p.category}</td><td>${p.name}</td><td>${fmt(p.price)}</td><td><button onclick="deleteProduct('${p.id}')">🗑️</button></td></tr>`).join('');
-    }
-
-    async function deleteProduct(id) {
-        if (confirm("Excluir produto?")) {
-            await supabaseClient.from('products').delete().eq('id', id);
-            fetchProducts();
-        }
-    }
-
-    async function fetchHistory() {
-        const { data } = await supabaseClient.from('sales').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
-        document.getElementById('table-history').innerHTML = (data || []).map(s => `<tr><td>${new Date(s.created_at).toLocaleString()}</td><td>${s.name}</td><td>${s.company}</td><td>${fmt(s.total)}</td><td>${s.method}</td></tr>`).join('');
-    }
-
-    async function fetchReports() {
-        const { data } = await supabaseClient.from('deleted_log').select('*').eq('user_id', currentUser.id).order('deleted_at', { ascending: false });
-        document.getElementById('table-deleted-log').innerHTML = (data || []).map(l => `<tr><td>${new Date(l.deleted_at).toLocaleString()}</td><td>${l.order_name}</td><td>${l.content}</td><td>${fmt(l.total)}</td></tr>`).join('');
-    }
-
-    async function renderReports() {
-        const start = document.getElementById('date-start').value;
-        const end = document.getElementById('date-end').value;
-        if(!start || !end) return alert("Selecione as datas");
-
-        const { data } = await supabaseClient.from('sales')
-            .select('total')
-            .eq('user_id', currentUser.id)
-            .gte('created_at', start)
-            .lte('created_at', end + 'T23:59:59');
-
-        const total = (data || []).reduce((acc, curr) => acc + curr.total, 0);
-        document.getElementById('rep-total').innerText = fmt(total);
+        document.getElementById('table-products').innerHTML = products.map(p => `
+            <tr><td>${p.category}</td><td>${p.name}</td><td>${fmt(p.price)}</td><td><button onclick="deleteProduct('${p.id}')">🗑️</button></td></tr>
+        `).join('');
     }
 
     function calculateTotal(ord) { 
         if (!ord || !ord.items) return 0;
-        return ord.items.reduce((a,i) => a + ((i.price + i.selectedAddons.reduce((x,y)=>x+y.price,0)) * i.qty), 0); 
+        return ord.items.reduce((a,i) => {
+            const addonsVal = i.selectedAddons ? i.selectedAddons.reduce((x,y)=>x+y.price,0) : 0;
+            return a + ((i.price + addonsVal) * i.qty);
+        }, 0); 
     }
 
     function printOrder(type, ord) {
@@ -489,7 +602,108 @@
         div.innerHTML = h; window.print(); setTimeout(() => div.innerHTML = '', 500);
     }
 
-    // INIT
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function openProductModal() { document.getElementById('modal-product').style.display='flex'; }
+    function openCategoryModal() { document.getElementById('modal-category').style.display='flex'; }
+    function openCheckout() { 
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        document.getElementById('pay-total').innerText = fmt(calculateTotal(ord));
+        document.getElementById('modal-checkout').style.display = 'flex'; 
+    }
+    function openEditNameModal() { document.getElementById('modal-edit-name').style.display = 'flex'; }
+
+    function openItemOptions(idx) {
+        currentItemIdx = idx;
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        const item = ord.items[idx];
+        const pOrigem = products.find(x => String(x.id) === String(item.id));
+        
+        const list = document.getElementById('item-addons-list');
+        list.innerHTML = '<b>Opcionais:</b><br>';
+        if (pOrigem && pOrigem.addons) {
+            pOrigem.addons.forEach(ad => {
+                const checked = item.selectedAddons && item.selectedAddons.some(s => s.name === ad.name) ? 'checked' : '';
+                list.innerHTML += `<label><input type="checkbox" class="addon-chk" data-name="${ad.name}" data-price="${ad.price}" ${checked}> ${ad.name} (+${ad.price})</label><br>`;
+            });
+        }
+        document.getElementById('item-obs').value = item.obs || '';
+        document.getElementById('modal-item').style.display = 'flex';
+    }
+
+    function confirmItemOptions() {
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        const item = ord.items[currentItemIdx];
+        item.selectedAddons = [];
+        document.querySelectorAll('.addon-chk:checked').forEach(el => {
+            item.selectedAddons.push({ name: el.dataset.name, price: parseFloat(el.dataset.price) });
+        });
+        item.obs = document.getElementById('item-obs').value;
+        closeModal('modal-item');
+        saveAndRefreshOrder();
+    }
+
+    // --- EXPORTAÇÃO E IMPORTAÇÃO ---
+
+    async function exportProductsJSON() {
+        showLoading(true);
+        try {
+            const { data, error } = await supabaseClient.from('products').select('category, name, price, addons').eq('user_id', currentUser.id);
+            if (error) throw error;
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url;
+            a.download = `backup_produtos_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        } catch (err) { alert("Erro ao exportar: " + err.message); } finally { showLoading(false); }
+    }
+
+    async function importProductsJSON(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            showLoading(true);
+            try {
+                const json = JSON.parse(e.target.result);
+                const toImport = json.map(p => ({ ...p, user_id: currentUser.id }));
+                const { error } = await supabaseClient.from('products').insert(toImport);
+                if (error) throw error;
+                alert("Produtos importados!");
+                await fetchProducts();
+            } catch (err) { alert("Erro: " + err.message); } finally { showLoading(false); event.target.value = ''; }
+        };
+        reader.readAsText(file);
+    }
+
+    async function exportSalesCSV() {
+        const start = document.getElementById('date-start').value;
+        const end = document.getElementById('date-end').value;
+        if (!start || !end) return alert("Selecione o período.");
+
+        showLoading(true);
+        try {
+            const { data, error } = await supabaseClient.from('sales').select('created_at, name, company, total, method, items')
+                .eq('user_id', currentUser.id).gte('created_at', start).lte('created_at', end + 'T23:59:59').order('created_at', { ascending: true });
+
+            if (error) throw error;
+            if (data.length === 0) return alert("Nenhuma venda encontrada.");
+
+            let csv = "Data;Hora;Comanda;Empresa;Total;Metodo;Itens\n";
+            data.forEach(s => {
+                const d = new Date(s.created_at);
+                const itens = s.items.map(i => `${i.qty}x ${i.name}`).join(' | ');
+                csv += `${d.toLocaleDateString()};${d.toLocaleTimeString()};${s.name};${s.company};${s.total.toString().replace('.',',')};${s.method};${itens}\n`;
+            });
+
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url;
+            a.download = `vendas_${start}_a_${end}.csv`;
+            a.click();
+        } catch (err) { alert("Erro ao exportar CSV: " + err.message); } finally { showLoading(false); }
+    }
+
+    // INICIALIZAÇÃO
     checkAuth();
 </script>
 </body>
