@@ -56,10 +56,82 @@
         input, select, textarea { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
 
         #printArea { display: none; }
+
+        /* =============================================
+           IMPRESSÃO TÉRMICA 80mm
+           ============================================= */
         @media print {
+            @page {
+                size: 80mm auto;
+                margin: 2mm 3mm;
+            }
+
             body * { visibility: hidden; }
-            #printArea { display: block !important; visibility: visible !important; position: absolute; left: 0; top: 0; width: 80mm; font-family: monospace; }
+
+            #printArea {
+                display: block !important;
+                visibility: visible !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 74mm;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 10pt;
+                color: #000;
+                background: #fff;
+                line-height: 1.4;
+            }
+
             #printArea * { visibility: visible !important; }
+
+            #printArea .print-header {
+                text-align: center;
+                font-size: 12pt;
+                font-weight: bold;
+                margin-bottom: 2mm;
+            }
+
+            #printArea .print-sub {
+                text-align: center;
+                font-size: 9pt;
+                margin-bottom: 1mm;
+            }
+
+            #printArea .print-divider {
+                border: none;
+                border-top: 1px dashed #000;
+                margin: 2mm 0;
+            }
+
+            #printArea .print-item-row {
+                display: flex;
+                justify-content: space-between;
+                font-size: 10pt;
+                margin: 1mm 0;
+            }
+
+            #printArea .print-item-name {
+                flex: 1;
+            }
+
+            #printArea .print-item-value {
+                text-align: right;
+                min-width: 18mm;
+            }
+
+            #printArea .print-total-row {
+                display: flex;
+                justify-content: space-between;
+                font-size: 12pt;
+                font-weight: bold;
+                margin-top: 2mm;
+            }
+
+            #printArea .print-footer {
+                text-align: center;
+                font-size: 9pt;
+                margin-top: 3mm;
+            }
         }
     </style>
 </head>
@@ -68,7 +140,7 @@
 <!-- TELA DE LOGIN -->
 <div id="login-screen">
     <div class="login-box">
-        <h2 style="color: var(--dark)">🍔 Lanchonete Pinheiro</h2>
+        <h2 style="color: var(--dark)">🍔 Lanchonete Cloud</h2>
         <p>Faça login para continuar</p>
         <input type="email" id="login-email" placeholder="E-mail">
         <input type="password" id="login-password" placeholder="Senha">
@@ -144,7 +216,8 @@
                 <div class="items-list" id="order-items"></div>
                 <div style="padding: 15px; border-top: 2px solid #eee;">
                     <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:1.3rem; margin-bottom:10px;">Total: <span id="total-comanda">R$ 0,00</span></div>
-                    <button class="btn btn-primary" onclick="printOrder('kitchen')">🖨️ COZINHA</button>
+                    <!-- CORREÇÃO: passa a comanda atual para printOrder -->
+                    <button class="btn btn-primary" onclick="printCurrentOrder('kitchen')">🖨️ COZINHA</button>
                     <button class="btn btn-success" id="btn-checkout" onclick="openCheckout()">💰 PAGAR</button>
                 </div>
             </div>
@@ -180,7 +253,6 @@
             <option value="Azul">Azul</option>
             <option value="Casinhas">Casinhas</option>
             <option value="Pedreiros">Pedreiros</option>
-            <option value="EGP">EGP</option>
         </select>
         <button class="btn btn-success" onclick="createComanda()">Abrir Agora</button>
         <button class="btn" onclick="closeModal('modal-new-comanda')">Cancelar</button>
@@ -190,19 +262,7 @@
 <div id="modal-category" class="modal"><div class="modal-content"><h3>Nova Categoria</h3><input type="text" id="cat-name"><button class="btn btn-success" onclick="saveCategory()">Salvar</button><button class="btn" onclick="closeModal('modal-category')">Sair</button></div></div>
 <div id="modal-product" class="modal"><div class="modal-content"><h3>Produto</h3><input type="hidden" id="p-id"><label>Categoria</label><select id="p-category-select"></select><input type="text" id="p-name" placeholder="Nome"><input type="number" id="p-price" placeholder="Preço"><textarea id="p-addons" placeholder="Opcionais (Bacon:2.00, Ovo:1.50)"></textarea><button class="btn btn-success" onclick="saveProduct()">Salvar</button><button class="btn" onclick="closeModal('modal-product')">Sair</button></div></div>
 <div id="modal-edit-name" class="modal"><div class="modal-content"><h3>Mudar Nome</h3><input type="text" id="edit-c-name"><button class="btn btn-success" onclick="saveNewName()">OK</button></div></div>
-
-<!-- CORREÇÃO DE ID DO HTML PARA O CHECKOUT -->
-<div id="modal-checkout" class="modal">
-    <div class="modal-content">
-        <h3>Pagar</h3>
-        <p id="pay-total-txt"></p>
-        <select id="pay-method"><option>Dinheiro</option><option>PIX</option><option>Cartão</option></select>
-        <button class="btn btn-success" onclick="finalizeSale(true)">Pagar e Imprimir</button>
-        <button class="btn btn-primary" onclick="finalizeSale(false)">Apenas Pagar</button>
-        <button class="btn" onclick="closeModal('modal-checkout')">Voltar</button>
-    </div>
-</div>
-
+<div id="modal-checkout" class="modal"><div class="modal-content"><h3>Pagar</h3><p id="pay-total-txt"></p><select id="pay-method"><option>Dinheiro</option><option>PIX</option><option>Cartão</option></select><button class="btn btn-success" onclick="finalizeSale(true)">Pagar e Imprimir</button><button class="btn btn-primary" onclick="finalizeSale(false)">Apenas Pagar</button><button class="btn" onclick="closeModal('modal-checkout')">Voltar</button></div></div>
 <div id="modal-item" class="modal"><div class="modal-content"><h3>Opcionais</h3><div id="item-addons-list"></div><input type="text" id="item-obs" placeholder="Observação"><button class="btn btn-success" onclick="confirmItemOptions()">Salvar</button></div></div>
 
 <div id="printArea"></div>
@@ -303,7 +363,7 @@
         renderPainel();
     }
 
-    // --- OPERAÇÕES DE PRODUTOS E CATEGORIAS ---
+    // --- OPERAÇÕES ---
 
     async function saveCategory() {
         const name = document.getElementById('cat-name').value;
@@ -338,7 +398,7 @@
     }
 
     async function deleteProduct(id) {
-        if (confirm("Excluir produto definitivamente?")) {
+        if (confirm("Excluir produto?")) {
             showLoading(true);
             await supabaseClient.from('products').delete().eq('id', id).eq('user_id', currentUser.id);
             await fetchProducts();
@@ -346,7 +406,7 @@
         }
     }
 
-    // --- LÓGICA DE COMANDAS (OPEN ORDERS) ---
+    // --- LÓGICA DE ABERTURA E CRIAÇÃO DE COMANDAS ---
 
     function openNewComandaModal() {
         document.getElementById('modal-new-comanda').style.display = 'flex';
@@ -371,10 +431,14 @@
 
             nameInput.value = '';
             closeModal('modal-new-comanda');
+            
             await fetchOpenOrders();
-            if (data && data[0]) openOrder(data[0].id);
+            
+            if (data && data[0]) {
+                openOrder(data[0].id);
+            }
         } catch (e) {
-            alert("Erro ao criar comanda: " + e.message);
+            alert("Erro ao abrir comanda: " + e.message);
         } finally {
             showLoading(false);
         }
@@ -385,6 +449,7 @@
         currentOrderId = id;
         
         let ord = openOrders.find(o => String(o.id) === String(id));
+        
         if (!ord) {
             const { data } = await supabaseClient.from('open_orders').select('*').eq('id', id).single();
             ord = data;
@@ -423,7 +488,7 @@
 
         ord.items[idx].qty += delta;
         if (ord.items[idx].qty <= 0) {
-            if (confirm("Remover item do pedido?")) ord.items.splice(idx, 1);
+            if (confirm("Remover item?")) ord.items.splice(idx, 1);
             else ord.items[idx].qty = 1;
         }
         await saveAndRefreshOrder();
@@ -459,7 +524,7 @@
 
     async function handleDeleteOrder() {
         const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
-        if (confirm("Deseja EXCLUIR esta comanda? O registro será salvo para auditoria.")) {
+        if (confirm("Deseja EXCLUIR esta comanda?")) {
             showLoading(true);
             const total = calculateTotal(ord);
             await supabaseClient.from('deleted_log').insert([{
@@ -475,63 +540,62 @@
         }
     }
 
-    // --- CORREÇÃO: LÓGICA DE FECHAMENTO (CHECKOUT) ---
-
-    function openCheckout() { 
-        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
-        if (!ord) return alert("Comanda não encontrada!");
-        
-        document.getElementById('pay-total-txt').innerHTML = `Total: <b>${fmt(calculateTotal(ord))}</b>`;
-        document.getElementById('modal-checkout').style.display = 'flex'; 
-    }
+    // --- FINALIZAÇÃO E RELATÓRIOS ---
 
     async function finalizeSale(print) {
         const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
-        if (!ord || ord.items.length === 0) return alert("Comanda vazia!");
+        if (!ord || ord.items.length === 0) return alert("Não é possível fechar uma comanda vazia!");
 
         const total = calculateTotal(ord);
         const method = document.getElementById('pay-method').value;
 
         showLoading(true);
-        // 1. Salvar na tabela de vendas
-        const { error: saleError } = await supabaseClient.from('sales').insert([{
-            name: ord.name,
-            company: ord.company,
-            total: total,
-            method: method,
-            items: ord.items,
-            user_id: currentUser.id
-        }]);
+        try {
+            const { error: saleError } = await supabaseClient.from('sales').insert([{
+                name: ord.name,
+                company: ord.company,
+                total: total,
+                method: method,
+                items: ord.items,
+                user_id: currentUser.id
+            }]);
 
-        if (saleError) {
-            alert("Erro ao salvar venda: " + saleError.message);
-        } else {
-            // 2. Deletar da comanda aberta
-            await supabaseClient.from('open_orders').delete().eq('id', ord.id).eq('user_id', currentUser.id);
-            
+            if (saleError) throw saleError;
+
+            const { error: deleteError } = await supabaseClient.from('open_orders')
+                .delete()
+                .eq('id', ord.id)
+                .eq('user_id', currentUser.id);
+
+            if (deleteError) throw deleteError;
+
             if (print) {
-                ord.total = total; 
-                ord.method = method;
-                printOrder('receipt', ord);
+                // CORREÇÃO: monta o objeto completo com total e método antes de imprimir
+                const ordToPrint = { ...ord, total, method };
+                printOrder('receipt', ordToPrint);
             }
+
             closeModal('modal-checkout');
             await fetchOpenOrders();
             router('painel');
+        } catch (e) {
+            alert("Erro ao finalizar conta: " + e.message);
+        } finally {
+            showLoading(false);
         }
-        showLoading(false);
     }
 
     async function fetchHistory() {
         const { data } = await supabaseClient.from('sales').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
         document.getElementById('table-history').innerHTML = (data || []).map(s => `
-            <tr><td>${new Date(s.created_at).toLocaleString()}</td><td>${s.name}</td><td>${s.company}</td><td>${fmt(parseFloat(s.total))}</td><td>${s.method}</td></tr>
+            <tr><td>${new Date(s.created_at).toLocaleString()}</td><td>${s.name}</td><td>${s.company}</td><td>${fmt(s.total)}</td><td>${s.method}</td></tr>
         `).join('');
     }
 
     async function fetchReports() {
         const { data } = await supabaseClient.from('deleted_log').select('*').eq('user_id', currentUser.id).order('deleted_at', { ascending: false });
         document.getElementById('table-deleted-log').innerHTML = (data || []).map(l => `
-            <tr><td>${new Date(l.deleted_at).toLocaleString()}</td><td>${l.order_name}</td><td>${l.content}</td><td>${fmt(parseFloat(l.total))}</td></tr>
+            <tr><td>${new Date(l.deleted_at).toLocaleString()}</td><td>${l.order_name}</td><td>${l.content}</td><td>${fmt(l.total)}</td></tr>
         `).join('');
     }
 
@@ -552,7 +616,7 @@
         showLoading(false);
     }
 
-    // --- AUXILIARES DE RENDERIZAÇÃO ---
+    // --- AUXILIARES ---
 
     function renderPainel() {
         const grid = document.getElementById('grid-comandas');
@@ -612,35 +676,81 @@
         }, 0); 
     }
 
-    // --- CORREÇÃO: LÓGICA DE IMPRESSÃO ---
+    // CORREÇÃO: função auxiliar para imprimir a comanda atual (botão COZINHA)
+    function printCurrentOrder(type) {
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        if (!ord) return alert("Comanda não encontrada!");
+        printOrder(type, ord);
+    }
 
-    function printOrder(type, saleObj = null) {
+    // CORREÇÃO: printOrder agora gera HTML semântico para impressão térmica 80mm
+    function printOrder(type, ord) {
+        if (!ord) return;
         const div = document.getElementById('printArea');
-        const ord = saleObj || openOrders.find(o => String(o.id) === String(currentOrderId));
-        if (!ord) return alert("Erro ao imprimir: comanda não encontrada.");
+        const isReceipt = type === 'receipt';
+        const now = new Date().toLocaleString('pt-BR');
+        const sep = '<hr class="print-divider">';
 
-        let h = `<div style="text-align:center"><b>${type==='kitchen'?'COZINHA':'RECIBO'}</b><br>---</div>`;
-        h += `Comanda: ${ord.name}<br>${ord.company!=='Nenhuma'?'Empresa: '+ord.company+'<br>':''}${new Date().toLocaleString()}<br>---<br>`;
-        
+        let h = '';
+        h += `<div class="print-header">LANCHONETE CLOUD</div>`;
+        h += `<div class="print-sub">${isReceipt ? 'RECIBO' : '*** COZINHA ***'}</div>`;
+        h += sep;
+        h += `<div class="print-sub">Comanda: <b>${ord.name}</b></div>`;
+        if (ord.company && ord.company !== 'Nenhuma') {
+            h += `<div class="print-sub">Empresa: ${ord.company}</div>`;
+        }
+        h += `<div class="print-sub">${now}</div>`;
+        h += sep;
+
         ord.items.forEach(i => {
-            h += `${i.qty}x ${i.name}<br>`;
+            const addonsVal = i.selectedAddons ? i.selectedAddons.reduce((a, b) => a + b.price, 0) : 0;
+            const unitPrice = i.price + addonsVal;
+            const subtotal = unitPrice * i.qty;
+            h += `<div class="print-item-row">`;
+            h += `  <span class="print-item-name">${i.qty}x ${i.name}</span>`;
+            if (isReceipt) {
+                h += `  <span class="print-item-value">${fmt(subtotal)}</span>`;
+            }
+            h += `</div>`;
             if (i.selectedAddons && i.selectedAddons.length > 0) {
-                h += `<small>+ ${i.selectedAddons.map(a => a.name).join(', ')}</small><br>`;
+                i.selectedAddons.forEach(ad => {
+                    h += `<div class="print-item-row" style="font-size:9pt; padding-left:4mm;">`;
+                    h += `  <span class="print-item-name">+ ${ad.name}</span>`;
+                    if (isReceipt) h += `  <span class="print-item-value">${fmt(ad.price)}</span>`;
+                    h += `</div>`;
+                });
             }
             if (i.obs) {
-                h += `<small>Obs: ${i.obs}</small><br>`;
+                h += `<div style="font-size:9pt; padding-left:4mm; font-style:italic;">Obs: ${i.obs}</div>`;
             }
         });
 
-        if(type==='receipt') h += `---<br>TOTAL: ${fmt(parseFloat(ord.total))}<br>Pgto: ${ord.method}`;
-        
-        div.innerHTML = h; 
-        window.print(); 
-        setTimeout(() => div.innerHTML = '', 500);
+        if (isReceipt) {
+            h += sep;
+            h += `<div class="print-total-row"><span>TOTAL</span><span>${fmt(ord.total)}</span></div>`;
+            h += `<div class="print-sub" style="margin-top:1mm;">Pagamento: <b>${ord.method}</b></div>`;
+        }
+
+        h += sep;
+        h += `<div class="print-footer">Obrigado pela preferencia!</div>`;
+        h += `<div style="margin-bottom: 8mm;"></div>`;
+
+        div.innerHTML = h;
+        window.print();
+        setTimeout(() => div.innerHTML = '', 800);
     }
 
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function openProductModal() { document.getElementById('modal-product').style.display='flex'; }
     function openCategoryModal() { document.getElementById('modal-category').style.display='flex'; }
+
+    function openCheckout() { 
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        if (!ord) return alert("Comanda não encontrada!");
+        document.getElementById('pay-total-txt').innerHTML = `Total a Pagar: <b>${fmt(calculateTotal(ord))}</b>`;
+        document.getElementById('modal-checkout').style.display = 'flex'; 
+    }
+
     function openEditNameModal() { document.getElementById('modal-edit-name').style.display = 'flex'; }
 
     function openItemOptions(idx) {
