@@ -53,6 +53,7 @@
         .btn-success { background: var(--primary); color: white; }
         .btn-danger { background: var(--danger); color: white; }
         .btn-primary { background: var(--secondary); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
         input, select, textarea { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
 
         #printArea { display: none; }
@@ -260,7 +261,22 @@
 </div>
 
 <div id="modal-category" class="modal"><div class="modal-content"><h3>Nova Categoria</h3><input type="text" id="cat-name"><button class="btn btn-success" onclick="saveCategory()">Salvar</button><button class="btn" onclick="closeModal('modal-category')">Sair</button></div></div>
-<div id="modal-product" class="modal"><div class="modal-content"><h3>Produto</h3><input type="hidden" id="p-id"><label>Categoria</label><select id="p-category-select"></select><input type="text" id="p-name" placeholder="Nome"><input type="number" id="p-price" placeholder="Preço"><textarea id="p-addons" placeholder="Opcionais (Bacon:2.00, Ovo:1.50)"></textarea><button class="btn btn-success" onclick="saveProduct()">Salvar</button><button class="btn" onclick="closeModal('modal-product')">Sair</button></div></div>
+
+<!-- MODAL PRODUTO: campo id oculto para controlar criação vs edição -->
+<div id="modal-product" class="modal">
+    <div class="modal-content">
+        <h3 id="modal-product-title">Produto</h3>
+        <input type="hidden" id="p-id">
+        <label>Categoria</label>
+        <select id="p-category-select"></select>
+        <input type="text" id="p-name" placeholder="Nome">
+        <input type="number" id="p-price" placeholder="Preço">
+        <textarea id="p-addons" placeholder="Opcionais (Bacon:2.00, Ovo:1.50)"></textarea>
+        <button class="btn btn-success" onclick="saveProduct()">Salvar</button>
+        <button class="btn" onclick="closeModal('modal-product')">Sair</button>
+    </div>
+</div>
+
 <div id="modal-edit-name" class="modal"><div class="modal-content"><h3>Mudar Nome</h3><input type="text" id="edit-c-name"><button class="btn btn-success" onclick="saveNewName()">OK</button></div></div>
 <div id="modal-checkout" class="modal"><div class="modal-content"><h3>Pagar</h3><p id="pay-total-txt"></p><select id="pay-method"><option>Dinheiro</option><option>PIX</option><option>Cartão</option></select><button class="btn btn-success" onclick="finalizeSale(true)">Pagar e Imprimir</button><button class="btn btn-primary" onclick="finalizeSale(false)">Apenas Pagar</button><button class="btn" onclick="closeModal('modal-checkout')">Voltar</button></div></div>
 <div id="modal-item" class="modal"><div class="modal-content"><h3>Opcionais</h3><div id="item-addons-list"></div><input type="text" id="item-obs" placeholder="Observação"><button class="btn btn-success" onclick="confirmItemOptions()">Salvar</button></div></div>
@@ -570,7 +586,6 @@
             if (deleteError) throw deleteError;
 
             if (print) {
-                // CORREÇÃO: monta o objeto completo com total e método antes de imprimir
                 const ordToPrint = { ...ord, total, method };
                 printOrder('receipt', ordToPrint);
             }
@@ -664,7 +679,15 @@
 
     function renderAdminProducts() {
         document.getElementById('table-products').innerHTML = products.map(p => `
-            <tr><td>${p.category}</td><td>${p.name}</td><td>${fmt(p.price)}</td><td><button onclick="deleteProduct('${p.id}')">🗑️</button></td></tr>
+            <tr>
+                <td>${p.category}</td>
+                <td>${p.name}</td>
+                <td>${fmt(p.price)}</td>
+                <td style="display:flex; gap:5px;">
+                    <button onclick="editProduct('${p.id}')" style="background:var(--warning); color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-size:0.85rem;">✏️</button>
+                    <button onclick="deleteProduct('${p.id}')" style="background:var(--danger); color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-size:0.85rem;">🗑️</button>
+                </td>
+            </tr>
         `).join('');
     }
 
@@ -676,14 +699,12 @@
         }, 0); 
     }
 
-    // CORREÇÃO: função auxiliar para imprimir a comanda atual (botão COZINHA)
     function printCurrentOrder(type) {
         const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
         if (!ord) return alert("Comanda não encontrada!");
         printOrder(type, ord);
     }
 
-    // CORREÇÃO: printOrder agora gera HTML semântico para impressão térmica 80mm
     function printOrder(type, ord) {
         if (!ord) return;
         const div = document.getElementById('printArea');
@@ -741,7 +762,46 @@
     }
 
     function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-    function openProductModal() { document.getElementById('modal-product').style.display='flex'; }
+
+    // Abre o modal de produto em modo CRIAÇÃO (campos em branco)
+    function openProductModal() {
+        document.getElementById('modal-product-title').innerText = 'Novo Produto';
+        document.getElementById('p-id').value = '';
+        document.getElementById('p-name').value = '';
+        document.getElementById('p-price').value = '';
+        document.getElementById('p-addons').value = '';
+        // reseta o select para o primeiro item
+        const sel = document.getElementById('p-category-select');
+        if (sel.options.length > 0) sel.selectedIndex = 0;
+        document.getElementById('modal-product').style.display = 'flex';
+    }
+
+    // Abre o modal de produto em modo EDIÇÃO (preenche os campos com os dados existentes)
+    function editProduct(id) {
+        const p = products.find(x => String(x.id) === String(id));
+        if (!p) return alert("Produto não encontrado.");
+
+        document.getElementById('modal-product-title').innerText = 'Editar Produto';
+        document.getElementById('p-id').value = p.id;
+        document.getElementById('p-name').value = p.name;
+        document.getElementById('p-price').value = p.price;
+
+        // reconstrói a string de opcionais a partir do array salvo
+        const addonsStr = (p.addons || []).map(a => `${a.name}:${a.price}`).join(', ');
+        document.getElementById('p-addons').value = addonsStr;
+
+        // seleciona a categoria correta no select
+        const sel = document.getElementById('p-category-select');
+        for (let i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === p.category) {
+                sel.selectedIndex = i;
+                break;
+            }
+        }
+
+        document.getElementById('modal-product').style.display = 'flex';
+    }
+
     function openCategoryModal() { document.getElementById('modal-category').style.display='flex'; }
 
     function openCheckout() { 
