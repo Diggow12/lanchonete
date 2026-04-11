@@ -6,6 +6,8 @@
     <title>Lanchonete Cloud - Supabase</title>
     <!-- Supabase JS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/index.js"></script>
     <style>
         :root {
             --primary: #27ae60; --secondary: #2980b9; --danger: #c0392b;
@@ -57,6 +59,10 @@
         input, select, textarea { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
 
         #printArea { display: none; }
+
+        /* Phosphor icons inline alignment */
+        ph-icon, i.ph { vertical-align: middle; }
+        button ph-icon, button i.ph { pointer-events: none; }
 
         /* =============================================
            IMPRESSÃO TÉRMICA 80mm
@@ -141,7 +147,7 @@
 <!-- TELA DE LOGIN -->
 <div id="login-screen">
     <div class="login-box">
-        <h2 style="color: var(--dark)">🍔 Lanchonete Cloud</h2>
+        <h2 style="color: var(--dark)"><i class="ph ph-hamburger"></i> Lanchonete Cloud</h2>
         <p>Faça login para continuar</p>
         <input type="email" id="login-email" placeholder="E-mail">
         <input type="password" id="login-password" placeholder="Senha">
@@ -152,12 +158,12 @@
 </div>
 
 <!-- LOADING -->
-<div id="loading">⌛ Processando...</div>
+<div id="loading"><i class="ph ph-hourglass-medium"></i> Processando...</div>
 
 <!-- APP CONTENT -->
 <div id="app-container" style="display: none; flex-direction: column; height: 100vh;">
     <nav>
-        <div style="font-weight: bold;">🍔 LANCHONETE CLOUD</div>
+        <div style="font-weight: bold;"><i class="ph ph-hamburger"></i> LANCHONETE CLOUD</div>
         <div class="nav-links">
             <button onclick="router('painel')">Comandas</button>
             <button onclick="router('historico')">Histórico</button>
@@ -179,8 +185,8 @@
 
     <main id="view-produtos">
         <div style="margin-top: 10px; display: flex; gap: 10px;">
-                <button class="btn" style="width: auto; background: #555; color: white;" onclick="exportProductsJSON()">📥 Exportar Produtos (JSON)</button>
-                <button class="btn" style="width: auto; background: #555; color: white;" onclick="document.getElementById('importProdFile').click()">📤 Importar Produtos (JSON)</button>
+                <button class="btn" style="width: auto; background: #555; color: white;" onclick="exportProductsJSON()"><i class="ph ph-download-simple"></i> Exportar Produtos (JSON)</button>
+                <button class="btn" style="width: auto; background: #555; color: white;" onclick="document.getElementById('importProdFile').click()"><i class="ph ph-upload-simple"></i> Importar Produtos (JSON)</button>
                 <input type="file" id="importProdFile" style="display:none" accept=".json" onchange="importProductsJSON(event)">
             </div>
         <div style="display: flex; gap: 20px;">
@@ -201,16 +207,16 @@
 
     <main id="view-pedido">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <button class="btn btn-primary" style="width: auto;" onclick="router('painel')">⬅ Voltar</button>
+            <button class="btn btn-primary" style="width: auto;" onclick="router('painel')"><i class="ph ph-arrow-left"></i> Voltar</button>
             <div style="text-align: center;"><h2 id="title-comanda" style="margin:0">Comanda</h2><small id="label-empresa-pedido" style="color:var(--secondary); font-weight:bold"></small></div>
             <div style="display: flex; gap: 5px;">
-                <button class="btn btn-primary" style="width: auto; background:#95a5a6;" onclick="openEditNameModal()">✏️ Nome</button>
-                <button class="btn btn-danger" style="width: auto;" onclick="handleDeleteOrder()">🗑️ Excluir</button>
+                <button class="btn btn-primary" style="width: auto; background:#95a5a6;" onclick="openEditNameModal()"><i class="ph ph-pencil-simple"></i> Nome</button>
+                <button class="btn btn-danger" style="width: auto;" onclick="handleDeleteOrder()"><i class="ph ph-trash"></i> Excluir</button>
             </div>
         </div>
         <div class="order-layout">
             <div class="catalog-container">
-                <input type="text" id="prod-search" placeholder="🔍 Buscar produto..." onkeyup="renderCatalog(this.value)">
+                <input type="text" id="prod-search" placeholder="Buscar produto..." onkeyup="renderCatalog(this.value)">
                 <div class="catalog" id="catalog" style="margin-top:10px;"></div>
             </div>
             <div class="sidebar">
@@ -218,8 +224,8 @@
                 <div style="padding: 15px; border-top: 2px solid #eee;">
                     <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:1.3rem; margin-bottom:10px;">Total: <span id="total-comanda">R$ 0,00</span></div>
                     <!-- CORREÇÃO: passa a comanda atual para printOrder -->
-                    <button class="btn btn-primary" onclick="printCurrentOrder('kitchen')">🖨️ COZINHA</button>
-                    <button class="btn btn-success" id="btn-checkout" onclick="openCheckout()">💰 PAGAR</button>
+                    <button class="btn btn-primary" onclick="printCurrentOrder('kitchen')"><i class="ph ph-printer"></i> COZINHA</button>
+                    <button class="btn btn-success" id="btn-checkout" onclick="openCheckout()"><i class="ph ph-money"></i> PAGAR</button>
                 </div>
             </div>
         </div>
@@ -232,7 +238,7 @@
             <div>Início: <input type="date" id="date-start"></div>
             <div>Fim: <input type="date" id="date-end"></div>
             <button class="btn btn-primary" style="width: auto;" onclick="renderReports()">Filtrar</button>
-            <button class="btn btn-excel" style="width: auto; background: #1d6f42; color: white;" onclick="exportSalesCSV()">📊 Excel (CSV)</button>
+            <button class="btn btn-excel" style="width: auto; background: #1d6f42; color: white;" onclick="exportSalesCSV()"><i class="ph ph-microsoft-excel-logo"></i> Excel (CSV)</button>
         </div>
         <div style="background: white; padding: 20px; border-radius: 10px; margin-top: 20px; text-align: center; border-bottom: 5px solid var(--primary);">
             <h3>Faturamento no Período</h3>
@@ -659,7 +665,7 @@
                     <div><button onclick="changeQty(${idx},-1)">-</button> ${item.qty} <button onclick="changeQty(${idx},1)">+</button> ${item.name}</div>
                     <b>${fmt(sub)}</b>
                 </div>
-                <small onclick="openItemOptions(${idx})" style="cursor:pointer; color:var(--secondary)">⚙️ Opcionais</small>
+                <small onclick="openItemOptions(${idx})" style="cursor:pointer; color:var(--secondary)"><i class="ph ph-gear"></i> Opcionais</small>
             </div>`;
         });
         document.getElementById('total-comanda').innerText = fmt(calculateTotal(ord));
@@ -684,8 +690,8 @@
                 <td>${p.name}</td>
                 <td>${fmt(p.price)}</td>
                 <td style="display:flex; gap:5px;">
-                    <button onclick="editProduct('${p.id}')" style="background:var(--warning); color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-size:0.85rem;">✏️</button>
-                    <button onclick="deleteProduct('${p.id}')" style="background:var(--danger); color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-size:0.85rem;">🗑️</button>
+                    <button onclick="editProduct('${p.id}')" style="background:var(--warning); color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-size:0.85rem;"><i class="ph ph-pencil-simple"></i></button>
+                    <button onclick="deleteProduct('${p.id}')" style="background:var(--danger); color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-size:0.85rem;"><i class="ph ph-trash"></i></button>
                 </td>
             </tr>
         `).join('');
