@@ -152,7 +152,7 @@
         <input type="email" id="login-email" placeholder="E-mail">
         <input type="password" id="login-password" placeholder="Senha">
         <button class="btn btn-success" onclick="handleLogin()">Entrar</button>
-        <button class="btn" style="background: #eee" onclick="handleSignUp()">Criar Nova Conta</button>
+        <button class="btn" style="background: #eee" onclick="handleSignUp()">Acessar conta de Demonstração</button>
         <div id="login-error" style="color: red; margin-top: 10px; font-size: 0.8rem;"></div>
     </div>
 </div>
@@ -340,13 +340,8 @@
     }
 
     async function handleSignUp() {
-        showLoading(true);
-        const email = document.getElementById('login-email').value;
-        const password = document.getElementById('login-password').value;
-        const { error } = await supabaseClient.auth.signUp({ email, password });
-        if (error) document.getElementById('login-error').innerText = "Erro: " + error.message;
-        else alert("Confirme seu e-mail para ativar a conta!");
-        showLoading(false);
+        document.getElementById('login-email').value = 'usuariotestes@lanchonete.com';
+        document.getElementById('login-password').value = '123456';
     }
 
     async function handleLogout() {
