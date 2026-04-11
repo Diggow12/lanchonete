@@ -265,13 +265,15 @@
     <div class="modal-content">
         <h3>Abrir Comanda</h3>
         <input type="text" id="new-c-name" placeholder="Mesa ou Nome">
-        <label>Empresa:</label>
-        <select id="new-c-company">
-            <option value="Nenhuma">Sem Empresa</option>
-            <option value="Azul">Azul</option>
-            <option value="Casinhas">Casinhas</option>
-            <option value="Pedreiros">Pedreiros</option>
-        </select>
+        <div id="company-field">
+            <label>Empresa:</label>
+            <select id="new-c-company">
+                <option value="Nenhuma">Sem Empresa</option>
+                <option value="Azul">Azul</option>
+                <option value="Casinhas">Casinhas</option>
+                <option value="Pedreiros">Pedreiros</option>
+            </select>
+        </div>
         <button class="btn btn-success" onclick="createComanda()">Abrir Agora</button>
         <button class="btn" onclick="closeModal('modal-new-comanda')">Cancelar</button>
     </div>
@@ -327,6 +329,7 @@
             if (user.email === 'usertestes@lanchonete.com') {
             await supabaseClient.rpc('reset_demo_data');
             document.getElementById('demo-banner').style.display = 'block';
+            document.getElementById('company-field').style.display = 'none';
             }
             
             document.getElementById('login-screen').style.display = 'none';
