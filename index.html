@@ -163,6 +163,16 @@
 <!-- APP CONTENT -->
 <div id="app-container" style="display: none; flex-direction: column; height: 100vh;">
     <nav>
+        <div id="demo-banner" style="
+    display:none;
+    background: #f39c12;
+    color: white;
+    text-align: center;
+    padding: 10px;
+    font-weight: bold;
+">
+    ⚠️ Você está usando uma conta de demonstração. Os dados serão resetados automaticamente.
+</div>
         <div style="font-weight: bold;"><i class="ph ph-hamburger"></i> LANCHONETE CLOUD</div>
         <div class="nav-links">
             <button onclick="router('painel')">Comandas</button>
@@ -312,6 +322,12 @@
         const { data: { user } } = await supabaseClient.auth.getUser();
         if (user) {
             currentUser = user;
+        
+            if (user.email === 'usertestes@lanchonete.com') {
+            await supabaseClient.rpc('reset_demo_data');
+            document.getElementById('demo-banner').style.display = 'block';
+            }
+            
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('app-container').style.display = 'flex';
             
