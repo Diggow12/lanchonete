@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lanchonete Cloud - Supabase</title>
+    <!-- Supabase JS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/index.js"></script>
+    <style>
+        :root {
+            --primary: #27ae60; --secondary: #2980b9; --danger: #c0392b;
+            --warning: #f39c12; --dark: #2c3e50; --light: #f4f7f6;
+        }
+
+        body { font-family: 'Segoe UI', sans-serif; background: var(--light); margin: 0; color: var(--dark); overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+
+        /* Estilos Login */
+        #login-screen { position: fixed; inset: 0; background: var(--dark); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+        .login-box { background: white; padding: 40px; border-radius: 12px; width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; }
+
+        /* Loading Overlay */
+        #loading { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.7); z-index: 3000; align-items: center; justify-content: center; font-weight: bold; }
+
+        /* Layout App */
+        nav { background: var(--dark); color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        .nav-links button { background: rgba(255,255,255,0.1); color: white; border: none; padding: 10px 15px; cursor: pointer; border-radius: 5px; margin-left: 5px; font-weight: bold; }
+
+        main { display: none; padding: 20px; flex: 1; overflow-y: auto; box-sizing: border-box; }
+        .active-view { display: block; }
+
+        /* Cards e Grids */
+        .comandas-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+        .card-comanda { background: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-top: 5px solid var(--warning); cursor: pointer; }
+        .btn-add-comanda { background: #fff; border: 2px dashed #ccc; border-radius: 10px; display: flex; align-items: center; justify-content: center; min-height: 120px; cursor: pointer; font-weight: bold; }
+
+        .order-layout { display: grid; grid-template-columns: 1fr 380px; gap: 20px; }
+        .catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; background: #ddd; padding: 15px; border-radius: 10px; }
+        .prod-btn { background: white; padding: 10px; border-radius: 8px; text-align: center; cursor: pointer; font-weight: bold; border: 1px solid #ccc; min-height: 100px; display: flex; flex-direction: column; justify-content: space-between; }
+        .prod-btn span { color: var(--primary); }
+
+        .sidebar { background: white; border-radius: 10px; display: flex; flex-direction: column; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .items-list { padding: 15px; max-height: 400px; overflow-y: auto; }
+        .order-item { border-bottom: 1px solid #eee; padding: 8px 0; }
+
+        .data-table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
+        .data-table th { background: var(--dark); color: white; padding: 12px; text-align: left; }
+        .data-table td { padding: 10px; border-bottom: 1px solid #eee; }
+
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 450px; }
+
+        .btn { padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
+        .btn-success { background: var(--primary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-primary { background: var(--secondary); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        input, select, textarea { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+
+        #printArea { display: none; }
+
+        /* Phosphor icons inline alignment */
+        ph-icon, i.ph { vertical-align: middle; }
+        button ph-icon, button i.ph { pointer-events: none; }
+
+        /* =============================================
+           IMPRESSÃO TÉRMICA 80mm
+           ============================================= */
+        @media print {
+            @page {
+                size: 80mm auto;
+                margin: 2mm 3mm;
+            }
+
+            body * { visibility: hidden; }
+
+            #printArea {
+                display: block !important;
+                visibility: visible !important;
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 74mm;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 10pt;
+                color: #000;
+                background: #fff;
+                line-height: 1.4;
+            }
+
+            #printArea * { visibility: visible !important; }
+
+            #printArea .print-header {
+                text-align: center;
+                font-size: 12pt;
+                font-weight: bold;
+                margin-bottom: 2mm;
+            }
+
+            #printArea .print-sub {
+                text-align: center;
+                font-size: 9pt;
+                margin-bottom: 1mm;
+            }
+
+            #printArea .print-divider {
+                border: none;
+                border-top: 1px dashed #000;
+                margin: 2mm 0;
+            }
+
+            #printArea .print-item-row {
+                display: flex;
+                justify-content: space-between;
+                font-weight: bold;
+                font-size: 10pt;
+                margin: 1mm 0;
+            }
+
+            #printArea .print-item-name {
+                flex: 1;
+                font-weight: bold;
+            }
+
+            #printArea .print-item-value {
+                text-align: right;
+                min-width: 18mm;
+            }
+
+            #printArea .print-total-row {
+                display: flex;
+                justify-content: space-between;
+                font-size: 12pt;
+                font-weight: bold;
+                margin-top: 2mm;
+            }
+
+            #printArea .print-footer {
+                text-align: center;
+                font-size: 9pt;
+                margin-top: 3mm;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- TELA DE LOGIN -->
+<div id="login-screen">
+    <div class="login-box">
+        <h2 style="color: var(--dark)"><i class="ph ph-hamburger"></i> Lanchonete Cloud</h2>
+        <p>Faça login para continuar</p>
+        <input type="email" id="login-email" placeholder="E-mail">
+        <input type="password" id="login-password" placeholder="Senha">
+        <button class="btn btn-success" onclick="handleLogin()">Entrar</button>
+        <button class="btn" style="background: #eee" onclick="handleSignUp()">Acessar conta de Demonstração</button>
+        <div id="login-error" style="color: red; margin-top: 10px; font-size: 0.8rem;"></div>
+    </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading"><i class="ph ph-hourglass-medium"></i> Processando...</div>
+
+<!-- APP CONTENT -->
+<div id="app-container" style="display: none; flex-direction: column; height: 100vh;">
+    <nav>
+        <div id="demo-banner" style="
+        display:none;
+        background: linear-gradient(90deg, #f39c12, #e67e22);
+        color: white;
+        text-align: center;
+        padding: 12px;
+        font-size: 0.9rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        ">
+        Modo Demonstração: os dados podem ser apagados automaticamente a qualquer momento.
+        </div>
+        <div style="font-weight: bold;"><i class="ph ph-hamburger"></i> LANCHONETE CLOUD</div>
+        <div class="nav-links">
+            <button onclick="router('painel')">Comandas</button>
+            <button onclick="router('historico')">Histórico</button>
+            <button onclick="router('produtos')">Produtos</button>
+            <button onclick="router('relatorios')">Relatórios</button>
+            <button onclick="handleLogout()" style="background: var(--danger)">Sair</button>
+        </div>
+    </nav>
+
+    <!-- VIEWS -->
+    <main id="view-painel" class="active-view">
+        <div class="comandas-grid" id="grid-comandas"></div>
+    </main>
+
+    <main id="view-historico">
+        <h2>Vendas Fechadas</h2>
+        <table class="data-table"><thead id="head-history"></thead><tbody id="table-history"></tbody></table>
+    </main>
+
+    <main id="view-produtos">
+        <div style="margin-top: 10px; display: flex; gap: 10px;">
+                <button class="btn" style="width: auto; background: #555; color: white;" onclick="exportProductsJSON()"><i class="ph ph-download-simple"></i> Exportar Produtos (JSON)</button>
+                <button class="btn" style="width: auto; background: #555; color: white;" onclick="document.getElementById('importProdFile').click()"><i class="ph ph-upload-simple"></i> Importar Produtos (JSON)</button>
+                <input type="file" id="importProdFile" style="display:none" accept=".json" onchange="importProductsJSON(event)">
+            </div>
+        <div style="display: flex; gap: 20px;">
+            <div style="flex: 1;">
+                <h3>Categorias <button onclick="openCategoryModal()" class="btn btn-success" style="width:auto; padding:5px">+</button></h3>
+                <table class="data-table"><tbody id="table-categories"></tbody></table>
+            </div>
+            <div style="flex: 2;">
+                <h3>Produtos <button onclick="openProductModal()" class="btn btn-success" style="width:auto; padding:5px 15px">+</button></h3>
+                <table class="data-table">
+                    <thead><tr><th>Cat</th><th>Nome</th><th>Preço</th><th>Ações</th></tr></thead>
+                    <tbody id="table-products"></tbody>
+                </table>
+            </div>
+            
+        </div>
+    </main>
+
+    <main id="view-pedido">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <button class="btn btn-primary" style="width: auto;" onclick="router('painel')"><i class="ph ph-arrow-left"></i> Voltar</button>
+            <div style="text-align: center;"><h2 id="title-comanda" style="margin:0">Comanda</h2><small id="label-empresa-pedido" style="color:var(--secondary); font-weight:bold"></small></div>
+            <div style="display: flex; gap: 5px;">
+                <button class="btn btn-primary" style="width: auto; background:#95a5a6;" onclick="openEditNameModal()"><i class="ph ph-pencil-simple"></i> Nome</button>
+                <button class="btn btn-danger" style="width: auto;" onclick="handleDeleteOrder()"><i class="ph ph-trash"></i> Excluir</button>
+            </div>
+        </div>
+        <div class="order-layout">
+            <div class="catalog-container">
+                <input type="text" id="prod-search" placeholder="Buscar produto..." onkeyup="renderCatalog(this.value)">
+                <div class="catalog" id="catalog" style="margin-top:10px;"></div>
+            </div>
+            <div class="sidebar">
+                <div class="items-list" id="order-items"></div>
+                <div style="padding: 15px; border-top: 2px solid #eee;">
+                    <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:1.3rem; margin-bottom:10px;">Total: <span id="total-comanda">R$ 0,00</span></div>
+                    <!-- CORREÇÃO: passa a comanda atual para printOrder -->
+                    <button class="btn btn-primary" onclick="printCurrentOrder('kitchen')"><i class="ph ph-printer"></i> COZINHA</button>
+                    <button class="btn btn-success" id="btn-checkout" onclick="openCheckout()"><i class="ph ph-money"></i> PAGAR</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="view-relatorios">
+        <h2>Financeiro</h2>
+        
+        <div style="background: white; padding: 15px; border-radius: 10px; display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap;">
+            <div>Início: <input type="date" id="date-start"></div>
+            <div>Fim: <input type="date" id="date-end"></div>
+            <button class="btn btn-primary" style="width: auto;" onclick="renderReports()">Filtrar</button>
+            <button class="btn btn-excel" style="width: auto; background: #1d6f42; color: white;" onclick="exportSalesCSV()"><i class="ph ph-microsoft-excel-logo"></i> Excel (CSV)</button>
+        </div>
+        <div style="background: white; padding: 20px; border-radius: 10px; margin-top: 20px; text-align: center; border-bottom: 5px solid var(--primary);">
+            <h3>Faturamento no Período</h3>
+            <p id="rep-total" style="font-size: 2.5rem; font-weight: bold; color: var(--primary); margin:0;">R$ 0,00</p>
+        </div>
+        <h3 style="margin-top: 30px;">Log de Exclusões</h3>
+        <table class="data-table"><tbody id="table-deleted-log"></tbody></table>
+    </main>
+</div>
+
+<!-- MODAIS -->
+<div id="modal-new-comanda" class="modal">
+    <div class="modal-content">
+        <h3>Abrir Comanda</h3>
+        <input type="text" id="new-c-name" placeholder="Mesa ou Nome">
+        <div id="company-field">
+            <label>Empresa:</label>
+            <select id="new-c-company">
+                <option value="Nenhuma">Sem Empresa</option>
+                <option value="Azul">Azul</option>
+                <option value="Casinhas">Casinhas</option>
+                <option value="Pedreiros">Pedreiros</option>
+            </select>
+        </div>
+        <button class="btn btn-success" onclick="createComanda()">Abrir Agora</button>
+        <button class="btn" onclick="closeModal('modal-new-comanda')">Cancelar</button>
+    </div>
+</div>
+
+<div id="modal-category" class="modal"><div class="modal-content"><h3>Nova Categoria</h3><input type="text" id="cat-name"><button class="btn btn-success" onclick="saveCategory()">Salvar</button><button class="btn" onclick="closeModal('modal-category')">Sair</button></div></div>
+
+<!-- MODAL PRODUTO: campo id oculto para controlar criação vs edição -->
+<div id="modal-product" class="modal">
+    <div class="modal-content">
+        <h3 id="modal-product-title">Produto</h3>
+        <input type="hidden" id="p-id">
+        <label>Categoria</label>
+        <select id="p-category-select"></select>
+        <input type="text" id="p-name" placeholder="Nome">
+        <input type="number" id="p-price" placeholder="Preço">
+        <textarea id="p-addons" placeholder="Opcionais (Bacon:2.00, Ovo:1.50)"></textarea>
+        <button class="btn btn-success" onclick="saveProduct()">Salvar</button>
+        <button class="btn" onclick="closeModal('modal-product')">Sair</button>
+    </div>
+</div>
+
+<div id="modal-edit-name" class="modal"><div class="modal-content"><h3>Mudar Nome</h3><input type="text" id="edit-c-name"><button class="btn btn-success" onclick="saveNewName()">OK</button></div></div>
+<div id="modal-checkout" class="modal"><div class="modal-content"><h3>Pagar</h3><p id="pay-total-txt"></p><select id="pay-method"><option>Dinheiro</option><option>PIX</option><option>Cartão</option></select><button class="btn btn-success" onclick="finalizeSale(true)">Pagar e Imprimir</button><button class="btn btn-primary" onclick="finalizeSale(false)">Apenas Pagar</button><button class="btn" onclick="closeModal('modal-checkout')">Voltar</button></div></div>
+<div id="modal-item" class="modal"><div class="modal-content"><h3>Opcionais</h3><div id="item-addons-list"></div><input type="text" id="item-obs" placeholder="Observação"><button class="btn btn-success" onclick="confirmItemOptions()">Salvar</button></div></div>
+
+<div id="printArea"></div>
+
+<script>
+    // CONFIGURAÇÃO SUPABASE
+    const SUPABASE_URL = 'https://wylnqipilmkgvpqmucmc.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_1u1oPJBH5TXZqa2YsZ2tUg_Zb6IslR1';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ESTADO GLOBAL
+    let currentUser = null;
+    let products = [];
+    let categories = [];
+    let openOrders = [];
+    let currentOrderId = null;
+    let currentItemIdx = null;
+
+    const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    const showLoading = (show) => document.getElementById('loading').style.display = show ? 'flex' : 'none';
+
+    // --- SISTEMA DE AUTENTICAÇÃO ---
+
+    async function checkAuth() {
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        if (user) {
+            currentUser = user;
+        
+            if (user.email === 'usertestes@lanchonete.com') {
+            await supabaseClient.rpc('reset_demo_data');
+            document.getElementById('demo-banner').style.display = 'block';
+            document.getElementById('company-field').style.display = 'none';
+            }
+            
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+            
+            showLoading(true);
+            await Promise.all([fetchCategories(), fetchProducts(), fetchOpenOrders()]);
+            showLoading(false);
+            
+            router('painel');
+        } else {
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('app-container').style.display = 'none';
+        }
+    }
+
+    async function handleLogin() {
+        showLoading(true);
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+            document.getElementById('login-error').innerText = "Erro: " + error.message;
+        } else {
+            await checkAuth();
+        }
+        showLoading(false);
+    }
+
+    async function handleSignUp() {
+        document.getElementById('login-email').value = 'usertestes@lanchonete.com';
+        document.getElementById('login-password').value = '123456';
+    }
+
+    async function handleLogout() {
+        await supabaseClient.auth.signOut();
+        location.reload();
+    }
+
+    // --- NAVEGAÇÃO E BUSCA DE DADOS ---
+
+    async function router(view) {
+        document.querySelectorAll('main').forEach(m => m.classList.remove('active-view'));
+        const target = document.getElementById('view-' + view);
+        if (target) target.classList.add('active-view');
+        
+        if (view === 'painel') await fetchOpenOrders();
+        if (view === 'produtos') { await fetchCategories(); await fetchProducts(); }
+        if (view === 'historico') await fetchHistory();
+        if (view === 'relatorios') await fetchReports();
+    }
+
+    async function fetchCategories() {
+        const { data } = await supabaseClient.from('categories').select('*').eq('user_id', currentUser.id);
+        categories = data || [];
+        renderAdminCategories();
+    }
+
+    async function fetchProducts() {
+        const { data } = await supabaseClient.from('products').select('*').eq('user_id', currentUser.id);
+        products = data || [];
+        renderAdminProducts();
+    }
+
+    async function fetchOpenOrders() {
+        const { data } = await supabaseClient.from('open_orders').select('*').eq('user_id', currentUser.id);
+        openOrders = data || [];
+        renderPainel();
+    }
+
+    // --- OPERAÇÕES ---
+
+    async function saveCategory() {
+        const name = document.getElementById('cat-name').value;
+        if (!name) return;
+        await supabaseClient.from('categories').insert([{ name, user_id: currentUser.id }]);
+        document.getElementById('cat-name').value = '';
+        closeModal('modal-category');
+        await fetchCategories();
+    }
+
+    async function saveProduct() {
+        const id = document.getElementById('p-id').value;
+        const name = document.getElementById('p-name').value;
+        const price = parseFloat(document.getElementById('p-price').value);
+        const category = document.getElementById('p-category-select').value;
+        const addonsStr = document.getElementById('p-addons').value;
+        
+        const addons = addonsStr.split(',').filter(s => s.includes(':')).map(s => {
+            const parts = s.split(':'); 
+            return { name: parts[0].trim(), price: parseFloat(parts[1]) || 0 };
+        });
+
+        const pData = { name, price, category, addons, user_id: currentUser.id };
+        
+        showLoading(true);
+        if (id) await supabaseClient.from('products').update(pData).eq('id', id).eq('user_id', currentUser.id);
+        else await supabaseClient.from('products').insert([pData]);
+
+        closeModal('modal-product');
+        await fetchProducts();
+        showLoading(false);
+    }
+
+    async function deleteProduct(id) {
+        if (confirm("Excluir produto?")) {
+            showLoading(true);
+            await supabaseClient.from('products').delete().eq('id', id).eq('user_id', currentUser.id);
+            await fetchProducts();
+            showLoading(false);
+        }
+    }
+
+    // --- LÓGICA DE ABERTURA E CRIAÇÃO DE COMANDAS ---
+
+    function openNewComandaModal() {
+        document.getElementById('modal-new-comanda').style.display = 'flex';
+    }
+
+    async function createComanda() {
+    const nameInput = document.getElementById('new-c-name');
+    const companyInput = document.getElementById('new-c-company');
+    const name = nameInput.value || "Mesa";
+    const company = companyInput.value;
+
+    showLoading(true);
+    try {
+        // 1. Define o início do dia atual para contar os pedidos
+        const inicioDia = new Date();
+        inicioDia.setHours(0, 0, 0, 0);
+
+        // 2. Conta quantos pedidos já existem (vendas + abertas) hoje
+        const { count: totalVendas } = await supabaseClient
+            .from('sales')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', currentUser.id)
+            .gte('created_at', inicioDia.toISOString());
+
+        const { count: totalAbertas } = await supabaseClient
+            .from('open_orders')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', currentUser.id);
+
+        // O próximo número é o total de hoje + 1
+        const proximoNumero = (totalVendas || 0) + (totalAbertas || 0) + 1;
+
+        // 3. Cria a comanda com o seq_num
+        const { data, error } = await supabaseClient.from('open_orders').insert([{ 
+            name: name, 
+            company: company, 
+            user_id: currentUser.id, 
+            seq_num: proximoNumero, // Salva o número aqui
+            items: [] 
+        }]).select();
+        
+        if (error) throw error;
+
+        nameInput.value = '';
+        closeModal('modal-new-comanda');
+        await fetchOpenOrders();
+        if (data && data[0]) openOrder(data[0].id);
+    } catch (e) {
+        alert("Erro ao criar comanda: " + e.message);
+    } finally {
+        showLoading(false);
+    }
+}
+
+    async function openOrder(id) {
+        showLoading(true);
+        currentOrderId = id;
+        
+        let ord = openOrders.find(o => String(o.id) === String(id));
+        
+        if (!ord) {
+            const { data } = await supabaseClient.from('open_orders').select('*').eq('id', id).single();
+            ord = data;
+        }
+
+        if (!ord) {
+            alert("Comanda não encontrada.");
+            showLoading(false);
+            return router('painel');
+        }
+
+        document.getElementById('title-comanda').innerText = ord.name;
+        document.getElementById('label-empresa-pedido').innerText = ord.company !== 'Nenhuma' ? ord.company : '';
+        
+        renderCatalog();
+        renderOrderItemsFromObj(ord);
+        
+        router('pedido');
+        showLoading(false);
+    }
+
+    async function addItem(pId) {
+        const p = products.find(x => String(x.id) === String(pId));
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        if (!ord || !p) return;
+
+        const newItem = { id: p.id, name: p.name, price: p.price, qty: 1, obs: '', selectedAddons: [] };
+        ord.items.push(newItem);
+
+        await saveAndRefreshOrder();
+    }
+
+    async function changeQty(idx, delta) {
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        if (!ord) return;
+
+        ord.items[idx].qty += delta;
+        if (ord.items[idx].qty <= 0) {
+            if (confirm("Remover item?")) ord.items.splice(idx, 1);
+            else ord.items[idx].qty = 1;
+        }
+        await saveAndRefreshOrder();
+    }
+
+    async function saveAndRefreshOrder() {
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        showLoading(true);
+        const { error } = await supabaseClient
+            .from('open_orders')
+            .update({ items: ord.items })
+            .eq('id', currentOrderId)
+            .eq('user_id', currentUser.id);
+        
+        if (error) alert("Erro ao salvar: " + error.message);
+        renderOrderItemsFromObj(ord);
+        showLoading(false);
+    }
+
+    async function saveNewName() {
+        const newName = document.getElementById('edit-c-name').value;
+        showLoading(true);
+        await supabaseClient.from('open_orders')
+            .update({ name: newName })
+            .eq('id', currentOrderId)
+            .eq('user_id', currentUser.id);
+        
+        closeModal('modal-edit-name');
+        await fetchOpenOrders();
+        openOrder(currentOrderId);
+        showLoading(false);
+    }
+
+    async function handleDeleteOrder() {
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        if (confirm("Deseja EXCLUIR esta comanda?")) {
+            showLoading(true);
+            const total = calculateTotal(ord);
+            await supabaseClient.from('deleted_log').insert([{
+                order_name: ord.name,
+                total: total,
+                content: ord.items.map(i => `${i.qty}x ${i.name}`).join(', '),
+                user_id: currentUser.id
+            }]);
+            await supabaseClient.from('open_orders').delete().eq('id', ord.id).eq('user_id', currentUser.id);
+            await fetchOpenOrders();
+            router('painel');
+            showLoading(false);
+        }
+    }
+
+    // --- FINALIZAÇÃO E RELATÓRIOS ---
+
+    async function finalizeSale(print) {
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        if (!ord || ord.items.length === 0) return alert("Não é possível fechar uma comanda vazia!");
+
+        const total = calculateTotal(ord);
+        const method = document.getElementById('pay-method').value;
+
+        showLoading(true);
+        try {
+            const { error: saleError } = await supabaseClient.from('sales').insert([{
+                name: ord.name,
+                company: ord.company,
+                total: total,
+                method: method,
+                items: ord.items,
+                seq_num: ord.seq_num,
+                user_id: currentUser.id
+            }]);
+
+            if (saleError) throw saleError;
+
+            const { error: deleteError } = await supabaseClient.from('open_orders')
+                .delete()
+                .eq('id', ord.id)
+                .eq('user_id', currentUser.id);
+
+            if (deleteError) throw deleteError;
+
+            if (print) {
+                const ordToPrint = { ...ord, total, method };
+                printOrder('receipt', ordToPrint);
+            }
+
+            closeModal('modal-checkout');
+            await fetchOpenOrders();
+            router('painel');
+        } catch (e) {
+            alert("Erro ao finalizar conta: " + e.message);
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    async function fetchHistory() {
+        const { data } = await supabaseClient.from('sales').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+        document.getElementById('table-history').innerHTML = (data || []).map(s => `
+            <tr><td>${new Date(s.created_at).toLocaleString()}</td><td>${s.name}</td><td>${s.company}</td><td>${fmt(s.total)}</td><td>${s.method}</td></tr>
+        `).join('');
+    }
+
+    async function fetchReports() {
+        const { data } = await supabaseClient.from('deleted_log').select('*').eq('user_id', currentUser.id).order('deleted_at', { ascending: false });
+        document.getElementById('table-deleted-log').innerHTML = (data || []).map(l => `
+            <tr><td>${new Date(l.deleted_at).toLocaleString()}</td><td>${l.order_name}</td><td>${l.content}</td><td>${fmt(l.total)}</td></tr>
+        `).join('');
+    }
+
+    async function renderReports() {
+        const start = document.getElementById('date-start').value;
+        const end = document.getElementById('date-end').value;
+        if(!start || !end) return alert("Selecione as datas");
+
+        showLoading(true);
+        const { data } = await supabaseClient.from('sales')
+            .select('total')
+            .eq('user_id', currentUser.id)
+            .gte('created_at', start)
+            .lte('created_at', end + 'T23:59:59');
+
+        const total = (data || []).reduce((acc, curr) => acc + parseFloat(curr.total), 0);
+        document.getElementById('rep-total').innerText = fmt(total);
+        showLoading(false);
+    }
+
+    // --- AUXILIARES ---
+
+    function renderPainel() {
+        const grid = document.getElementById('grid-comandas');
+        grid.innerHTML = `<div class="btn-add-comanda" onclick="openNewComandaModal()">+ NOVA COMANDA</div>`;
+        openOrders.forEach(ord => {
+            const total = calculateTotal(ord);
+            grid.innerHTML += `
+                <div class="card-comanda" onclick="openOrder('${ord.id}')">
+                    ${ord.company !== 'Nenhuma' ? `<span style="font-size:0.7rem; background:var(--secondary); color:white; padding:2px 5px; border-radius:5px">${ord.company}</span>` : ''}
+                    <h3 style="margin:5px 0">${ord.name}</h3>
+                    <div style="color:var(--primary); font-weight:bold">${fmt(total)}</div>
+                </div>`;
+        });
+    }
+
+    function renderOrderItemsFromObj(ord) {
+        const list = document.getElementById('order-items');
+        list.innerHTML = '';
+        if (!ord || !ord.items) return;
+
+        ord.items.forEach((item, idx) => {
+            const sub = (item.price + (item.selectedAddons ? item.selectedAddons.reduce((a,b)=>a+b.price,0) : 0)) * item.qty;
+            list.innerHTML += `<div class="order-item">
+                <div style="display:flex; justify-content:space-between">
+                    <div><button onclick="changeQty(${idx},-1)">-</button> ${item.qty} <button onclick="changeQty(${idx},1)">+</button> ${item.name}</div>
+                    <b>${fmt(sub)}</b>
+                </div>
+                <small onclick="openItemOptions(${idx})" style="cursor:pointer; color:var(--secondary)"><i class="ph ph-gear"></i> Opcionais</small>
+            </div>`;
+        });
+        document.getElementById('total-comanda').innerText = fmt(calculateTotal(ord));
+    }
+
+    function renderCatalog(filter = '') {
+        const cat = document.getElementById('catalog'); cat.innerHTML = '';
+        products.filter(p => p.name.toLowerCase().includes(filter.toLowerCase())).forEach(p => {
+            cat.innerHTML += `<div class="prod-btn" onclick="addItem('${p.id}')"><small>${p.category}</small><b>${p.name}</b><span>${fmt(p.price)}</span></div>`;
+        });
+    }
+
+    function renderAdminCategories() {
+        document.getElementById('table-categories').innerHTML = categories.map(c => `<tr><td>${c.name}</td></tr>`).join('');
+        document.getElementById('p-category-select').innerHTML = categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    }
+
+    function renderAdminProducts() {
+        document.getElementById('table-products').innerHTML = products.map(p => `
+            <tr>
+                <td>${p.category}</td>
+                <td>${p.name}</td>
+                <td>${fmt(p.price)}</td>
+                <td style="display:flex; gap:5px;">
+                    <button onclick="editProduct('${p.id}')" style="background:var(--warning); color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-size:0.85rem;"><i class="ph ph-pencil-simple"></i></button>
+                    <button onclick="deleteProduct('${p.id}')" style="background:var(--danger); color:white; border:none; padding:5px 8px; border-radius:4px; cursor:pointer; font-size:0.85rem;"><i class="ph ph-trash"></i></button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function calculateTotal(ord) { 
+        if (!ord || !ord.items) return 0;
+        return ord.items.reduce((a,i) => {
+            const addonsVal = i.selectedAddons ? i.selectedAddons.reduce((x,y)=>x+y.price,0) : 0;
+            return a + ((i.price + addonsVal) * i.qty);
+        }, 0); 
+    }
+
+    function printCurrentOrder(type) {
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        if (!ord) return alert("Comanda não encontrada!");
+        printOrder(type, ord);
+    }
+
+    function printOrder(type, saleObj = null) {
+    const div = document.getElementById('printArea');
+    const ord = saleObj || openOrders.find(o => String(o.id) === String(currentOrderId));
+    
+    if (!ord) return alert("Erro ao imprimir.");
+
+    // Formata o número com 3 dígitos (ex: 1 vira 001)
+    const numeroFormatado = String(ord.seq_num || 0).padStart(3, '0');
+
+    let h = `<div style="text-align:center; font-size: 1.2rem;">`;
+    h += `<b>${type==='kitchen'?'COZINHA':'RECIBO'} #${numeroFormatado}</b><br>`;
+    h += `---</div>`;
+    
+    h += `<b>Comanda:</b> ${ord.name}<br>`;
+    if(ord.company && ord.company !== 'Nenhuma') h += `<b>Empresa:</b> ${ord.company}<br>`;
+    h += `<b>Data:</b> ${new Date().toLocaleString()}<br>---<br>`;
+    
+    ord.items.forEach(i => {
+        h += `<div style="font-size: 1.1rem;"><b>${i.qty}x ${i.name}</b></div>`;
+        if (i.selectedAddons && i.selectedAddons.length > 0) {
+            h += `<div style="margin-left:10px;">+ ${i.selectedAddons.map(a => a.name).join(', ')}</div>`;
+        }
+        if (i.obs) h += `<div style="margin-left:10px;">* Obs: ${i.obs}</div>`;
+    });
+
+    if(type==='receipt') {
+        const totalFinal = ord.total || calculateTotal(ord);
+        h += `---<br><div style="font-size: 1.2rem;"><b>TOTAL: ${fmt(parseFloat(totalFinal))}</b></div>`;
+        h += `Pgto: ${ord.method || 'Aberto'}`;
+    }
+    
+    div.innerHTML = h; 
+    window.print(); 
+    setTimeout(() => div.innerHTML = '', 500); 
+}
+
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    // Abre o modal de produto em modo CRIAÇÃO (campos em branco)
+    function openProductModal() {
+        document.getElementById('modal-product-title').innerText = 'Novo Produto';
+        document.getElementById('p-id').value = '';
+        document.getElementById('p-name').value = '';
+        document.getElementById('p-price').value = '';
+        document.getElementById('p-addons').value = '';
+        // reseta o select para o primeiro item
+        const sel = document.getElementById('p-category-select');
+        if (sel.options.length > 0) sel.selectedIndex = 0;
+        document.getElementById('modal-product').style.display = 'flex';
+    }
+
+    // Abre o modal de produto em modo EDIÇÃO (preenche os campos com os dados existentes)
+    function editProduct(id) {
+        const p = products.find(x => String(x.id) === String(id));
+        if (!p) return alert("Produto não encontrado.");
+
+        document.getElementById('modal-product-title').innerText = 'Editar Produto';
+        document.getElementById('p-id').value = p.id;
+        document.getElementById('p-name').value = p.name;
+        document.getElementById('p-price').value = p.price;
+
+        // reconstrói a string de opcionais a partir do array salvo
+        const addonsStr = (p.addons || []).map(a => `${a.name}:${a.price}`).join(', ');
+        document.getElementById('p-addons').value = addonsStr;
+
+        // seleciona a categoria correta no select
+        const sel = document.getElementById('p-category-select');
+        for (let i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === p.category) {
+                sel.selectedIndex = i;
+                break;
+            }
+        }
+
+        document.getElementById('modal-product').style.display = 'flex';
+    }
+
+    function openCategoryModal() { document.getElementById('modal-category').style.display='flex'; }
+
+    function openCheckout() { 
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        if (!ord) return alert("Comanda não encontrada!");
+        document.getElementById('pay-total-txt').innerHTML = `Total a Pagar: <b>${fmt(calculateTotal(ord))}</b>`;
+        document.getElementById('modal-checkout').style.display = 'flex'; 
+    }
+
+    function openEditNameModal() { document.getElementById('modal-edit-name').style.display = 'flex'; }
+
+    function openItemOptions(idx) {
+        currentItemIdx = idx;
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        const item = ord.items[idx];
+        const pOrigem = products.find(x => String(x.id) === String(item.id));
+        
+        const list = document.getElementById('item-addons-list');
+        list.innerHTML = '<b>Opcionais:</b><br>';
+        if (pOrigem && pOrigem.addons) {
+            pOrigem.addons.forEach(ad => {
+                const checked = item.selectedAddons && item.selectedAddons.some(s => s.name === ad.name) ? 'checked' : '';
+                list.innerHTML += `<label><input type="checkbox" class="addon-chk" data-name="${ad.name}" data-price="${ad.price}" ${checked}> ${ad.name} (+${ad.price})</label><br>`;
+            });
+        }
+        document.getElementById('item-obs').value = item.obs || '';
+        document.getElementById('modal-item').style.display = 'flex';
+    }
+
+    function confirmItemOptions() {
+        const ord = openOrders.find(o => String(o.id) === String(currentOrderId));
+        const item = ord.items[currentItemIdx];
+        item.selectedAddons = [];
+        document.querySelectorAll('.addon-chk:checked').forEach(el => {
+            item.selectedAddons.push({ name: el.dataset.name, price: parseFloat(el.dataset.price) });
+        });
+        item.obs = document.getElementById('item-obs').value;
+        closeModal('modal-item');
+        saveAndRefreshOrder();
+    }
+
+    // --- EXPORTAÇÃO E IMPORTAÇÃO ---
+
+    async function exportProductsJSON() {
+        showLoading(true);
+        try {
+            const { data, error } = await supabaseClient.from('products').select('category, name, price, addons').eq('user_id', currentUser.id);
+            if (error) throw error;
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url;
+            a.download = `backup_produtos_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+        } catch (err) { alert("Erro ao exportar: " + err.message); } finally { showLoading(false); }
+    }
+
+    async function importProductsJSON(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            showLoading(true);
+            try {
+                const json = JSON.parse(e.target.result);
+                const toImport = json.map(p => ({ ...p, user_id: currentUser.id }));
+                const { error } = await supabaseClient.from('products').insert(toImport);
+                if (error) throw error;
+                alert("Produtos importados!");
+                await fetchProducts();
+            } catch (err) { alert("Erro: " + err.message); } finally { showLoading(false); event.target.value = ''; }
+        };
+        reader.readAsText(file);
+    }
+
+    async function exportSalesCSV() {
+        const start = document.getElementById('date-start').value;
+        const end = document.getElementById('date-end').value;
+        if (!start || !end) return alert("Selecione o período.");
+
+        showLoading(true);
+        try {
+            const { data, error } = await supabaseClient.from('sales').select('created_at, name, company, total, method, items')
+                .eq('user_id', currentUser.id).gte('created_at', start).lte('created_at', end + 'T23:59:59').order('created_at', { ascending: true });
+
+            if (error) throw error;
+            if (data.length === 0) return alert("Nenhuma venda encontrada.");
+
+            let csv = "Data;Hora;Comanda;Empresa;Total;Metodo;Itens\n";
+            data.forEach(s => {
+                const d = new Date(s.created_at);
+                const itens = s.items.map(i => `${i.qty}x ${i.name}`).join(' | ');
+                csv += `${d.toLocaleDateString()};${d.toLocaleTimeString()};${s.name};${s.company};${s.total.toString().replace('.',',')};${s.method};${itens}\n`;
+            });
+
+            const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url;
+            a.download = `vendas_${start}_a_${end}.csv`;
+            a.click();
+        } catch (err) { alert("Erro ao exportar CSV: " + err.message); } finally { showLoading(false); }
+    }
+
+    // INICIALIZAÇÃO
+    checkAuth();
+</script>
+</body>
+</html>
